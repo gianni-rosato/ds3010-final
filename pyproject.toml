@@ -14,3 +14,14 @@ dependencies = [
     "seaborn>=0.13.2",
     "uv>=0.9.17",
 ]
+
+# Explicit build system and setuptools configuration to support editable installs.
+# This resolves the "Multiple top-level modules discovered in a flat-layout"
+# error by specifying the modules that are part of the distribution.
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Explicitly declare the top-level modules so editable builds are allowed.
+py-modules = ["main", "map"]
