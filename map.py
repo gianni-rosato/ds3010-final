@@ -5,10 +5,9 @@ import plotly.express as px
 import pandas as pd
 from typing import Optional, Tuple, List, Dict, Any
 from plotly.graph_objs import Figure
-try:
-    from sklearn.linear_model import LinearRegression
-except Exception:
-    LinearRegression = None
+
+
+from sklearn.linear_model import LinearRegression
 import numpy as np
 from datetime import datetime
 import main
@@ -17,7 +16,7 @@ print("Loading data...")
 df: pd.DataFrame = main.load_data_from_kaggle()
 df = main.clean_data(df)
 
-# choose the proper temperature column globally (make temp_col available outside the CVI block)
+# choose the proper temperature column globally
 temp_col = (
     "temp_anomaly_celsius"
     if "temp_anomaly_celsius" in df.columns
@@ -31,8 +30,6 @@ if "climate_vulnerability_index" not in df.columns:
     def normalize(series: pd.Series) -> pd.Series:
         return (series - series.min()) / (series.max() - series.min())
 
-    # prefer anomaly if it's present; otherwise use base temperature if available
-
     components = []
     if "pm25_ugm3" in df.columns:
         components.append(normalize(df["pm25_ugm3"]) * 0.4)
@@ -44,12 +41,10 @@ if "climate_vulnerability_index" not in df.columns:
     if components:
         # Sum weighted components and rescale to 0-100
         combined = sum(components)
-        df["climate_vulnerability_index"] = (combined - combined.min()) / (
-            combined.max() - combined.min()
-        ) * 100
+        df["climate_vulnerability_index"] = (
+            (combined - combined.min()) / (combined.max() - combined.min()) * 100
+        )
 
-# Train a simple predictive model for respiratory disease if possible
-# We use a small linear regression to generate a 'predicted_respiratory_rate' field
 model_features = [
     c
     for c in [
@@ -63,7 +58,10 @@ model_features = [
     if c in df.columns
 ]
 
-if "respiratory_disease_rate" in df.columns and model_features and LinearRegression is not None:
+if (
+    "respiratory_disease_rate" in df.columns
+    and model_features
+):
     train_df = df.dropna(subset=model_features + ["respiratory_disease_rate"])
     if not train_df.empty:
         try:
@@ -71,7 +69,9 @@ if "respiratory_disease_rate" in df.columns and model_features and LinearRegress
             lr.fit(train_df[model_features], train_df["respiratory_disease_rate"])
             medians = df[model_features].median()
             # Fill NA with medians for prediction
-            df["predicted_respiratory_rate"] = lr.predict(df[model_features].fillna(medians))
+            df["predicted_respiratory_rate"] = lr.predict(
+                df[model_features].fillna(medians)
+            )
         except Exception:
             # If training fails for any reason, fall back to mean-based prediction
             df["predicted_respiratory_rate"] = df["respiratory_disease_rate"].mean()
@@ -121,15 +121,22 @@ app.layout = html.Div(
                         html.Label("Filter by Income Level:"),
                         dcc.Dropdown(
                             id="income-filter",
-                            options=[{"label": i, "value": i} for i in available_income_levels],
+                            options=[
+                                {"label": i, "value": i}
+                                for i in available_income_levels
+                            ],
                             value=None,
                             placeholder="Select Income Level (All)",
                         ),
                         html.Br(),
-                        html.Label(f"Filter by {region_col.replace('_', ' ').title() if region_col else 'Region'}:"),
+                        html.Label(
+                            f"Filter by {region_col.replace('_', ' ').title() if region_col else 'Region'}:"
+                        ),
                         dcc.Dropdown(
                             id="region-filter",
-                            options=[{"label": r, "value": r} for r in available_regions],
+                            options=[
+                                {"label": r, "value": r} for r in available_regions
+                            ],
                             value=None,
                             placeholder="Select Region (All)",
                         ),
@@ -137,12 +144,21 @@ app.layout = html.Div(
                         html.Label("Metric to color map:"),
                         dcc.Dropdown(
                             id="map-metric",
-                            options=[{"label": m.replace("_", " ").title(), "value": m} for m in available_metrics],
-                            value=available_metrics[0] if available_metrics else "climate_vulnerability_index",
+                            options=[
+                                {"label": m.replace("_", " ").title(), "value": m}
+                                for m in available_metrics
+                            ],
+                            value=available_metrics[0]
+                            if available_metrics
+                            else "climate_vulnerability_index",
                             placeholder="Select Metric",
                         ),
                     ],
-                    style={"width": "48%", "display": "inline-block", "verticalAlign": "top"},
+                    style={
+                        "width": "48%",
+                        "display": "inline-block",
+                        "verticalAlign": "top",
+                    },
                 ),
                 html.Div(
                     [
@@ -159,15 +175,26 @@ app.layout = html.Div(
                         html.Label("Select Date Range:"),
                         dcc.DatePickerRange(
                             id="date-range",
-                            min_date_allowed=df["date"].min().date() if "date" in df.columns else None,
-                            max_date_allowed=df["date"].max().date() if "date" in df.columns else None,
+                            min_date_allowed=df["date"].min().date()
+                            if "date" in df.columns
+                            else None,
+                            max_date_allowed=df["date"].max().date()
+                            if "date" in df.columns
+                            else None,
                             start_date=start_date_default,
                             end_date=end_date_default,
                         ),
                         html.Br(),
-                        html.Button("Reset Selection", id="reset-selection", n_clicks=0),
+                        html.Button(
+                            "Reset Selection", id="reset-selection", n_clicks=0
+                        ),
                     ],
-                    style={"width": "48%", "float": "right", "display": "inline-block", "verticalAlign": "top"},
+                    style={
+                        "width": "48%",
+                        "float": "right",
+                        "display": "inline-block",
+                        "verticalAlign": "top",
+                    },
                 ),
             ],
             style={"padding": "20px"},
@@ -243,7 +270,11 @@ def update_dashboard(
 
     # clear click_data only when reset-selection actually triggered this callback
     triggered = callback_context.triggered
-    if triggered and len(triggered) > 0 and "reset-selection" in triggered[0].get("prop_id", ""):
+    if (
+        triggered
+        and len(triggered) > 0
+        and "reset-selection" in triggered[0].get("prop_id", "")
+    ):
         click_data = None
 
     # income level filter (optional)
@@ -290,13 +321,31 @@ def update_dashboard(
         "predicted_respiratory_rate",
         "respiratory_disease_rate",
     ]
-    available_metrics_local: List[str] = [m for m in default_metrics if m in country_df.columns]
+    available_metrics_local: List[str] = [
+        m for m in default_metrics if m in country_df.columns
+    ]
     metric_to_display: str = (
-        metric_value if (metric_value in available_metrics_local) else (available_metrics_local[0] if available_metrics_local else "climate_vulnerability_index")
+        metric_value
+        if (metric_value in available_metrics_local)
+        else (
+            available_metrics_local[0]
+            if available_metrics_local
+            else "climate_vulnerability_index"
+        )
     )
 
     # build hover data list for the maps
-    hover_cols = [c for c in ["pm25_ugm3", "respiratory_disease_rate", "predicted_respiratory_rate", "gdp_per_capita_usd", "healthcare_access_index"] if c in country_df.columns]
+    hover_cols = [
+        c
+        for c in [
+            "pm25_ugm3",
+            "respiratory_disease_rate",
+            "predicted_respiratory_rate",
+            "gdp_per_capita_usd",
+            "healthcare_access_index",
+        ]
+        if c in country_df.columns
+    ]
 
     fig_map: Figure = px.choropleth(
         country_df,
@@ -326,10 +375,22 @@ def update_dashboard(
         filtered_df.groupby("date").mean(numeric_only=True).reset_index()
     )
 
-    trend_y_cols = [c for c in ["temperature_celsius", "respiratory_disease_rate", "predicted_respiratory_rate"] if c in trend_df.columns]
+    trend_y_cols = [
+        c
+        for c in [
+            "temperature_celsius",
+            "respiratory_disease_rate",
+            "predicted_respiratory_rate",
+        ]
+        if c in trend_df.columns
+    ]
     if not trend_y_cols:
         # fallback to numeric columns present
-        trend_y_cols = [c for c in trend_df.columns if c not in ["date", "country_name", "country_code"]][:2]
+        trend_y_cols = [
+            c
+            for c in trend_df.columns
+            if c not in ["date", "country_name", "country_code"]
+        ][:2]
 
     fig_trend: Figure = px.line(
         trend_df,
@@ -342,7 +403,11 @@ def update_dashboard(
     # scatter: PM2.5 vs respiratory disease
     scatter_color = (
         "income_level"
-        if ("income_level" in filtered_df.columns and selected_country_name == "Global" and not income_level)
+        if (
+            "income_level" in filtered_df.columns
+            and selected_country_name == "Global"
+            and not income_level
+        )
         else None
     )
     fig_scatter: Figure = px.scatter(
@@ -352,7 +417,11 @@ def update_dashboard(
         color=scatter_color,
         title=f"PM2.5 vs Respiratory Disease ({selected_country_name})",
         opacity=0.5,
-        hover_data=[c for c in ["country_name", region_col, "predicted_respiratory_rate"] if c and c in filtered_df.columns],
+        hover_data=[
+            c
+            for c in ["country_name", region_col, "predicted_respiratory_rate"]
+            if c and c in filtered_df.columns
+        ],
     )
 
     return fig_map, fig_trend, fig_scatter
